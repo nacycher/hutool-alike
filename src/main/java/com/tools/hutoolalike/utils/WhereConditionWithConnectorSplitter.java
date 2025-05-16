@@ -34,8 +34,8 @@ public class WhereConditionWithConnectorSplitter {
         // ${}无法使用jsqlparser解析，需要手动替换成其他字符，这里使用USER_NOT_INPUT
 //        String sql = "select * from table where id = 1 and name = USER_NOT_INPUT or age = 4 and salary > 1000 and create_date > date_format('yyyy-mm-dd', USER_NOT_INPUT)";
 //        String sql = "select *from table";
-//        String sql = "select *from table where id in (USER_NOT_INPUT) or name = 'my_name'";
-        String sql = "select *from table where id in (USER_NOT_INPUT) or name like '%USER_NOT_INPUT'";
+        String sql = "select *from table where id in (${ids}) and age like '%${age}%' or address in (select address from table2 where id = 666)";
+//        String sql = "select *from table where id in (USER_NOT_INPUT) or name like '%USER_NOT_INPUT'";
         handleEmptySqlConditions(sql);
     }
 
@@ -53,6 +53,8 @@ public class WhereConditionWithConnectorSplitter {
      */
     public static String handleEmptySqlConditions(String sql) throws Exception {
         log.info("动态删除sql条件-开始处理sql：{}", sql);
+        // 将所有${id}替换为USER_NOT_INPUT
+        sql = replaceAllUserNotInput(sql);
         StringBuilder sb = new StringBuilder();
         String whereSql = extractUpToWhere(sql);
         log.info("动态删除sql条件-得到sql种where之前的部分：{}", whereSql);
@@ -74,7 +76,7 @@ public class WhereConditionWithConnectorSplitter {
         }
         // 拼接sql
         for (int i = 0; i < newNodes.size(); i++) {
-            ConditionNode node = nodes.get(i);
+            ConditionNode node = newNodes.get(i);
             // 当前节点为第一个节点时，不为sql加连接词
             if (i == 0 && Objects.nonNull(node.connector)) {
                 sb.append(" ").append(node.condition.toString());
@@ -193,6 +195,16 @@ public class WhereConditionWithConnectorSplitter {
         // ^(.*?)(?i)\\bwhere\\b\\s*$
         // 分组1捕获where前内容，忽略where大小写，后面只能空白到结尾
         return sql.replaceAll("(?i)\\bwhere\\b\\s*$", "").trim();
+    }
+
+    /**
+     * 将所有的${id}替换成USER_NOT_INPUT
+     */
+    public static String replaceAllUserNotInput(String sql) {
+        if (sql == null) return null;
+
+        // 正则匹配未被转义的${...}
+        return sql.replaceAll("(?<!\\\\)\\$\\{[^}]*\\}", "USER_NOT_INPUT");
     }
 }
 
